@@ -1,8 +1,13 @@
-from fastapi import Request
+from json import JSONDecodeError
+
+from fastapi import HTTPException, Request
 
 
 async def handle_github_webhook(request: Request):
-    payload = await request.json()
+    try:
+        payload = await request.json()
+    except JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
 
     action = payload.get("action")
     pull_request = payload.get("pull_request")
