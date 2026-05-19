@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
 from app.github.client import GitHubClient
+from app.review.context_builder import build_review_context
 
 
 class PullRequestPayload(BaseModel):
@@ -71,19 +72,15 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
+    review_context = build_review_context(files)
+
     return {
         "status": "received",
         "action": action,
         "repository": repo_name,
         "pull_request": pr_number,
         "changed_files": len(files),
-        "files": [
-            {
-                "filename": file["filename"],
-                "status": file["status"],
-            }
-            for file in files
-        ],
+        "review_context_preview": review_context[:1000],
     }
 
 
