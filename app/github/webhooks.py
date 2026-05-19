@@ -32,7 +32,7 @@ class GitHubWebhookPayload(BaseModel):
                     "number": 1,
                 },
                 "repository": {
-                    "full_name": "mariusmaricean/ai-pr-review-assistant",
+                    "full_name": "owner/repo",
                 },
             }
         },
