@@ -134,6 +134,11 @@ def _github_error_detail(
                 "GitHub token cannot post PR comments. For fine-grained tokens, "
                 "grant Issues read/write permission on this repository."
             )
+        if operation == "fetch_files":
+            return (
+                "GitHub token cannot read pull request files. Make sure the token "
+                "has access to this repository and Pull requests read permission."
+            )
 
         return "GitHub token does not have access to this repository"
     if status_code == 404:
