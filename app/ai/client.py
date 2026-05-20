@@ -1,5 +1,6 @@
 from openai import AsyncOpenAI
 
+from app.ai.prompts import REVIEW_SYSTEM_PROMPT
 from app.config import settings
 
 
@@ -8,24 +9,8 @@ client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 async def generate_pr_review(review_context: str) -> str:
     prompt = f"""
-You are a senior software engineer reviewing a pull request.
+Review this pull request diff:
 
-Review the following code changes.
-
-Focus on:
-- bugs
-- security issues
-- performance concerns
-- maintainability
-- missing tests
-- architecture concerns
-
-Provide:
-1. Summary
-2. Key findings
-3. Suggested improvements
-
-PR Diff:
 {review_context}
 """
 
@@ -34,14 +19,14 @@ PR Diff:
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert code reviewer.",
+                "content": REVIEW_SYSTEM_PROMPT,
             },
             {
                 "role": "user",
                 "content": prompt,
             },
         ],
-        temperature=0.2,
+        temperature=0.1,
     )
 
-    return response.choices[0].message.content or ""
+    return response.choices[0].message.content
