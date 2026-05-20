@@ -11,17 +11,21 @@ Receives a GitHub pull request event, analyzes the changed code with AI, and pos
 ## MVP flow
 
 ```text
-GitHub PR opened/synchronized
-        ↓
-Webhook received by our backend
-        ↓
-Fetch PR diff from GitHub
-        ↓
-Send diff to AI review engine
-        ↓
-Generate review summary + findings
-        ↓
-Post comment on the PR
+GitHub Webhook
+      ↓
+FastAPI Endpoint
+      ↓
+GitHub API Client
+      ↓
+PR Diff Fetcher
+      ↓
+Context Builder
+      ↓
+OpenAI Review Engine
+      ↓
+Structured Review
+      ↓
+GitHub Comment Publisher
 ```
 
 

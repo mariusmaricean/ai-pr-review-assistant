@@ -6,18 +6,37 @@ class GitHubClient:
         self.token = token
         self.base_url = "https://api.github.com"
 
-    async def get_pull_request_files(self, repo_full_name: str, pr_number: int):
-        repo_full_name = self._normalize_repo_full_name(repo_full_name)
-        url = f"{self.base_url}/repos/{repo_full_name}/pulls/{pr_number}/files"
-
-        headers = {
+    def _headers(self):
+        return {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
+    async def get_pull_request_files(self, repo_full_name: str, pr_number: int):
+        repo_full_name = self._normalize_repo_full_name(repo_full_name)
+        url = f"{self.base_url}/repos/{repo_full_name}/pulls/{pr_number}/files"
+
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(url, headers=headers)
+            response = await client.get(url, headers=self._headers())
+            response.raise_for_status()
+            return response.json()
+
+    async def post_pull_request_comment(
+        self,
+        repo_full_name: str,
+        pr_number: int,
+        body: str,
+    ):
+        repo_full_name = self._normalize_repo_full_name(repo_full_name)
+        url = f"{self.base_url}/repos/{repo_full_name}/issues/{pr_number}/comments"
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                url,
+                headers=self._headers(),
+                json={"body": body},
+            )
             response.raise_for_status()
             return response.json()
 

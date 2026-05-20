@@ -1,5 +1,6 @@
 import httpx
 from fastapi import HTTPException
+from openai import OpenAIError
 from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
@@ -66,25 +67,79 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
                 status_code=exc.response.status_code,
                 repo_name=repo_name,
                 pr_number=pr_number,
+                operation="fetch_files",
             ),
         ) from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
-    review = await run_review(files)
+    try:
+        review = await run_review(files)
+    except OpenAIError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="OpenAI review generation failed",
+        ) from exc
+
+    comment_body = f"""
+## AI PR Review Assistant
+
+{review}
+
+---
+_Generated automatically by AI PR Review Assistant._
+"""
+
+    try:
+        await github_client.post_pull_request_comment(
+            repo_full_name=repo_name,
+            pr_number=pr_number,
+            body=comment_body,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=_github_error_detail(
+                status_code=exc.response.status_code,
+                repo_name=repo_name,
+                pr_number=pr_number,
+                operation="post_comment",
+            ),
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
     return {
         "status": "completed",
         "repository": repo_name,
         "pull_request": pr_number,
-        "review": review,
+        "changed_files": len(files),
+        "comment_posted": True,
     }
 
 
-def _github_error_detail(status_code: int, repo_name: str, pr_number: int):
+def _github_error_detail(
+    status_code: int,
+    repo_name: str,
+    pr_number: int,
+    operation: str,
+):
     if status_code == 401:
         return "GitHub token is invalid or missing"
     if status_code == 403:
+        if operation == "post_comment":
+            return (
+                "GitHub token cannot post PR comments. For fine-grained tokens, "
+                "grant Issues read/write permission on this repository."
+            )
+        if operation == "fetch_files":
+            return (
+                "GitHub token cannot read pull request files. Make sure the token "
+                "has access to this repository and Pull requests read permission."
+            )
+
         return "GitHub token does not have access to this repository"
     if status_code == 404:
         return {
