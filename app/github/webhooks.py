@@ -5,7 +5,8 @@ from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
 from app.github.client import GitHubClient
-from app.review.orchestrator import run_review
+from app.review.inline_mapper import map_findings_to_inline_comments
+from app.review.orchestrator import run_structured_review
 
 
 class PullRequestPayload(BaseModel):
@@ -74,28 +75,39 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
         raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
     try:
-        review = await run_review(files)
-    except OpenAIError as exc:
+        review = await run_structured_review(files)
+    except (OpenAIError, ValueError) as exc:
         raise HTTPException(
             status_code=502,
             detail="OpenAI review generation failed",
         ) from exc
 
+    review_markdown = review.to_markdown()
+    inline_comments = map_findings_to_inline_comments(files, review.findings)
+
     comment_body = f"""
 ## AI PR Review Assistant
 
-{review}
+{review_markdown}
 
 ---
 _Generated automatically by AI PR Review Assistant._
 """
 
     try:
-        await github_client.post_pull_request_comment(
-            repo_full_name=repo_name,
-            pr_number=pr_number,
-            body=comment_body,
-        )
+        if inline_comments:
+            await github_client.create_pull_request_review(
+                repo_full_name=repo_name,
+                pr_number=pr_number,
+                body=comment_body,
+                comments=inline_comments,
+            )
+        else:
+            await github_client.post_pull_request_comment(
+                repo_full_name=repo_name,
+                pr_number=pr_number,
+                body=comment_body,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
@@ -105,7 +117,7 @@ _Generated automatically by AI PR Review Assistant._
                 status_code=exc.response.status_code,
                 repo_name=repo_name,
                 pr_number=pr_number,
-                operation="post_comment",
+                operation="post_review" if inline_comments else "post_comment",
             ),
         ) from exc
     except httpx.RequestError as exc:
@@ -117,6 +129,7 @@ _Generated automatically by AI PR Review Assistant._
         "pull_request": pr_number,
         "changed_files": len(files),
         "comment_posted": True,
+        "inline_comments_posted": len(inline_comments),
     }
 
 
@@ -133,6 +146,11 @@ def _github_error_detail(
             return (
                 "GitHub token cannot post PR comments. For fine-grained tokens, "
                 "grant Issues read/write permission on this repository."
+            )
+        if operation == "post_review":
+            return (
+                "GitHub token cannot create pull request reviews. For fine-grained "
+                "tokens, grant Pull requests read/write permission on this repository."
             )
         if operation == "fetch_files":
             return (
