@@ -5,6 +5,7 @@ from app.review.chunker import chunk_files
 from app.review.context_builder import build_review_context
 from app.review.language import detect_language
 from app.review.models import ReviewResult
+from app.review.reviewer_types import REVIEWER_TYPES
 
 
 def detect_chunk_language(chunk: list[dict]) -> str:
@@ -21,19 +22,30 @@ def detect_chunk_language(chunk: list[dict]) -> str:
     return max(set(non_generic), key=non_generic.count)
 
 
-async def review_chunk(chunk: list[dict]):
+async def review_chunk_with_reviewer(
+    chunk: list[dict],
+    reviewer_type: str,
+):
     context = build_review_context(chunk)
     language = detect_chunk_language(chunk)
 
-    return await generate_pr_review(context, language)
+    return await generate_pr_review(
+        review_context=context,
+        language=language,
+        reviewer_type=reviewer_type,
+    )
 
 
 async def run_review(files: list[dict]) -> ReviewResult:
     chunks = chunk_files(files)
 
-    results = await asyncio.gather(
-        *[review_chunk(chunk) for chunk in chunks]
-    )
+    tasks = [
+        review_chunk_with_reviewer(chunk, reviewer_type)
+        for chunk in chunks
+        for reviewer_type in REVIEWER_TYPES
+    ]
+
+    results = await asyncio.gather(*tasks)
 
     summaries = []
     findings = []

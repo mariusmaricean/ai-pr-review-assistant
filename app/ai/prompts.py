@@ -122,6 +122,53 @@ Generic focus:
 }
 
 
+REVIEWER_PROFILES = {
+    "security": """
+You are a security reviewer.
+Focus only on security issues:
+- secrets
+- injection risks
+- auth/authz bugs
+- unsafe IO
+- insecure dependencies
+""",
+    "performance": """
+You are a performance reviewer.
+Focus only on performance issues:
+- inefficient loops
+- unnecessary network/database calls
+- memory risks
+- blocking async code
+""",
+    "maintainability": """
+You are a maintainability reviewer.
+Focus only on:
+- readability
+- duplication
+- poor boundaries
+- fragile logic
+- unnecessary complexity
+""",
+    "tests": """
+You are a test coverage reviewer.
+Focus only on:
+- missing tests
+- weak edge case coverage
+- regression risks
+- untested error paths
+""",
+    "architecture": """
+You are an architecture reviewer.
+Focus only on:
+- module boundaries
+- coupling
+- scalability
+- extensibility
+- design consistency
+""",
+}
+
+
 def build_language_prompt(language: str) -> str:
     return LANGUAGE_REVIEW_INSTRUCTIONS.get(
         language,

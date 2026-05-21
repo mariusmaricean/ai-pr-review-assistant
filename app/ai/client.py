@@ -2,7 +2,11 @@ import json
 
 from openai import AsyncOpenAI
 
-from app.ai.prompts import REVIEW_SYSTEM_PROMPT, build_language_prompt
+from app.ai.prompts import (
+    REVIEW_SYSTEM_PROMPT,
+    REVIEWER_PROFILES,
+    build_language_prompt,
+)
 from app.config import settings
 from app.review.models import ReviewResult
 
@@ -10,16 +14,27 @@ from app.review.models import ReviewResult
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
-async def generate_pr_review(review_context: str, language: str) -> ReviewResult:
+async def generate_pr_review(
+    review_context: str,
+    language: str,
+    reviewer_type: str = "general",
+) -> ReviewResult:
+    reviewer_instructions = REVIEWER_PROFILES.get(reviewer_type, "")
     language_instructions = build_language_prompt(language)
 
     prompt = f"""
 Review this pull request diff.
 
+Reviewer type:
+{reviewer_type}
+
+Reviewer instructions:
+{reviewer_instructions}
+
 Language/profile:
 {language}
 
-Additional review focus:
+Language-specific focus:
 {language_instructions}
 
 PR diff:
