@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
 from app.github.client import GitHubClient
+from app.review.line_filter import filter_findings_to_valid_lines
 from app.review.orchestrator import run_review
 
 
@@ -81,11 +82,16 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
             detail="OpenAI review generation failed",
         ) from exc
 
-    filtered_findings = [
+    confidence_filtered_findings = [
         finding
         for finding in review.findings
         if finding.confidence >= 0.7
     ]
+
+    filtered_findings = filter_findings_to_valid_lines(
+        confidence_filtered_findings,
+        files,
+    )
 
     inline_comments = [
         {
