@@ -20,9 +20,10 @@ Format:
 }
 
 Rules:
+- line must be a changed line from the PR diff
 - confidence must be between 0 and 1
-- findings must be concise
-- only include legitimate issues
+- only include issues you are confident about
+- avoid style-only comments
 - avoid speculation
-- prefer correctness over quantity
+- max 10 findings
 """

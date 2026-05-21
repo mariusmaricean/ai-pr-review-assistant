@@ -1,3 +1,6 @@
+from app.review.diff_parser import extract_changed_lines
+
+
 def build_review_context(files: list[dict]) -> str:
     sections = []
 
@@ -9,10 +12,15 @@ def build_review_context(files: list[dict]) -> str:
         if not patch:
             continue
 
+        valid_lines = extract_changed_lines(patch)
+
         sections.append(
             f"""
 File: {filename}
 Status: {status}
+
+Valid comment lines:
+{valid_lines}
 
 Diff:
 {patch}

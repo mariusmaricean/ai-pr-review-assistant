@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
 from app.github.client import GitHubClient
+from app.review.line_filter import filter_findings_to_valid_lines
 from app.review.orchestrator import run_review
 
 
@@ -81,45 +82,77 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
             detail="OpenAI review generation failed",
         ) from exc
 
-    filtered_findings = [
-        finding for finding in review.findings if finding.confidence >= 0.7
+    confidence_filtered_findings = [
+        finding
+        for finding in review.findings
+        if finding.confidence >= 0.7
     ]
 
-    comment_body = f"""
+    filtered_findings = filter_findings_to_valid_lines(
+        confidence_filtered_findings,
+        files,
+    )
+
+    inline_comments = [
+        {
+            "path": finding.file,
+            "line": finding.line,
+            "body": f"**{finding.title}**\n\n{finding.comment}\n\nSeverity: `{finding.severity}`",
+        }
+        for finding in filtered_findings
+    ]
+
+    review_body = f"""
 ## AI PR Review Assistant
 
-### Summary
 {review.summary}
 
-### Findings
+Findings: {len(filtered_findings)}
 """
 
-    for finding in filtered_findings:
-        comment_body += f"""
+    try:
+        if inline_comments:
+            await github_client.create_pull_request_review(
+                repo_full_name=repo_name,
+                pr_number=pr_number,
+                body=review_body,
+                comments=inline_comments,
+            )
+            published_as = "inline_review"
+        else:
+            await github_client.post_pull_request_comment(
+                repo_full_name=repo_name,
+                pr_number=pr_number,
+                body=f"{review_body}\n\nNo high-confidence inline findings.",
+            )
+            published_as = "summary_comment"
 
+    except httpx.HTTPStatusError:
+        fallback_body = f"""
+## AI PR Review Assistant
+
+{review.summary}
+
+Inline review failed, so here are the findings as a summary:
+
+"""
+
+        for finding in filtered_findings:
+            fallback_body += f"""
 - [{finding.severity.upper()}] `{finding.file}` line {finding.line}
   - {finding.title}
   - {finding.comment}
 """
 
-    try:
         await github_client.post_pull_request_comment(
             repo_full_name=repo_name,
             pr_number=pr_number,
-            body=comment_body,
+            body=fallback_body,
         )
+
+        published_as = "fallback_summary_comment"
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=exc.response.status_code,
-            detail=_github_error_detail(
-                status_code=exc.response.status_code,
-                repo_name=repo_name,
-                pr_number=pr_number,
-                operation="post_comment",
-            ),
-        ) from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
@@ -128,9 +161,8 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
         "repository": repo_name,
         "pull_request": pr_number,
         "changed_files": len(files),
-        "findings": len(review.findings),
-        "findings_posted": len(filtered_findings),
-        "comment_posted": True,
+        "findings": len(filtered_findings),
+        "published_as": published_as,
     }
 
 
