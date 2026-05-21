@@ -1,76 +1,26 @@
-from pydantic import BaseModel, ConfigDict
+import json
+
+from fastapi import Request
 
 from app.tasks import review_pull_request
 
 
-class PullRequestHeadPayload(BaseModel):
-    ref: str | None = None
-    sha: str | None = None
+async def handle_github_webhook(request: Request, body: bytes):
+    payload = json.loads(body)
 
-    model_config = ConfigDict(extra="allow")
+    action = payload.get("action")
+    pull_request = payload.get("pull_request")
+    repository = payload.get("repository")
 
-
-class PullRequestPayload(BaseModel):
-    number: int
-    head: PullRequestHeadPayload | None = None
-
-    model_config = ConfigDict(extra="allow")
-
-
-class RepositoryPayload(BaseModel):
-    full_name: str
-
-    model_config = ConfigDict(extra="allow")
-
-
-class InstallationPayload(BaseModel):
-    id: int
-
-    model_config = ConfigDict(extra="allow")
-
-
-class GitHubWebhookPayload(BaseModel):
-    action: str | None = None
-    pull_request: PullRequestPayload | None = None
-    repository: RepositoryPayload | None = None
-    installation: InstallationPayload | None = None
-
-    model_config = ConfigDict(
-        extra="allow",
-        json_schema_extra={
-            "example": {
-                "action": "opened",
-                "pull_request": {
-                    "number": 1,
-                    "head": {
-                        "ref": "feature-branch",
-                        "sha": "abc123",
-                    },
-                },
-                "repository": {
-                    "full_name": "owner/repo",
-                },
-                "installation": {"id": 123456},
-            }
-        },
-    )
-
-
-async def handle_github_webhook(payload: GitHubWebhookPayload):
-    pull_request = payload.pull_request
-    repository = payload.repository
-
-    if pull_request is None or repository is None:
+    if not pull_request or not repository:
         return {"status": "ignored", "reason": "not a pull request event"}
 
-    job = review_pull_request.delay(
-        payload.model_dump(mode="json", exclude_none=True)
-    )
+    job = review_pull_request.delay(payload)
 
     return {
         "status": "queued",
         "job_id": job.id,
-        "action": payload.action,
-        "repository": repository.full_name,
-        "pull_request": pull_request.number,
+        "action": action,
+        "repository": repository.get("full_name"),
+        "pull_request": pull_request.get("number"),
     }
