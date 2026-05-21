@@ -1,19 +1,9 @@
-from app.ai.client import generate_pr_review, generate_structured_pr_review
+from app.ai.client import generate_pr_review
 from app.review.context_builder import build_review_context
-from app.review.models import StructuredReview
+from app.review.models import ReviewResult
 
 
-async def run_review(files: list[dict]) -> str:
+async def run_review(files: list[dict]) -> ReviewResult:
     review_context = build_review_context(files)
 
-    review = await generate_pr_review(review_context)
-
-    return review
-
-
-async def run_structured_review(files: list[dict]) -> StructuredReview:
-    review_context = build_review_context(files)
-
-    review = await generate_structured_pr_review(review_context)
-
-    return review
+    return await generate_pr_review(review_context)

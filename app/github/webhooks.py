@@ -5,8 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
 from app.github.client import GitHubClient
-from app.review.inline_mapper import map_findings_to_inline_comments
-from app.review.orchestrator import run_structured_review
+from app.review.orchestrator import run_review
 
 
 class PullRequestPayload(BaseModel):
@@ -75,39 +74,40 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
         raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
     try:
-        review = await run_structured_review(files)
+        review = await run_review(files)
     except (OpenAIError, ValueError) as exc:
         raise HTTPException(
             status_code=502,
             detail="OpenAI review generation failed",
         ) from exc
 
-    review_markdown = review.to_markdown()
-    inline_comments = map_findings_to_inline_comments(files, review.findings)
+    filtered_findings = [
+        finding for finding in review.findings if finding.confidence >= 0.7
+    ]
 
     comment_body = f"""
 ## AI PR Review Assistant
 
-{review_markdown}
+### Summary
+{review.summary}
 
----
-_Generated automatically by AI PR Review Assistant._
+### Findings
+"""
+
+    for finding in filtered_findings:
+        comment_body += f"""
+
+- [{finding.severity.upper()}] `{finding.file}` line {finding.line}
+  - {finding.title}
+  - {finding.comment}
 """
 
     try:
-        if inline_comments:
-            await github_client.create_pull_request_review(
-                repo_full_name=repo_name,
-                pr_number=pr_number,
-                body=comment_body,
-                comments=inline_comments,
-            )
-        else:
-            await github_client.post_pull_request_comment(
-                repo_full_name=repo_name,
-                pr_number=pr_number,
-                body=comment_body,
-            )
+        await github_client.post_pull_request_comment(
+            repo_full_name=repo_name,
+            pr_number=pr_number,
+            body=comment_body,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
@@ -117,7 +117,7 @@ _Generated automatically by AI PR Review Assistant._
                 status_code=exc.response.status_code,
                 repo_name=repo_name,
                 pr_number=pr_number,
-                operation="post_review" if inline_comments else "post_comment",
+                operation="post_comment",
             ),
         ) from exc
     except httpx.RequestError as exc:
@@ -128,8 +128,9 @@ _Generated automatically by AI PR Review Assistant._
         "repository": repo_name,
         "pull_request": pr_number,
         "changed_files": len(files),
+        "findings": len(review.findings),
+        "findings_posted": len(filtered_findings),
         "comment_posted": True,
-        "inline_comments_posted": len(inline_comments),
     }
 
 
@@ -164,7 +165,7 @@ def _github_error_detail(
             "message": "GitHub repository or pull request not found",
             "repository": repo_name,
             "pull_request": pr_number,
-            "hint": "Use repository.full_name as 'owner/repo' and make sure the PR number exists. For private repos, the token needs access to the repo.",
+            "hint": "Use repository.full_name as owner/repo and make sure the PR number exists. For private repos, the token needs access to the repo.",
         }
 
     return "GitHub API request failed"

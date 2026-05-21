@@ -9,21 +9,22 @@ HUNK_HEADER_PATTERN = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 def map_findings_to_inline_comments(
     files: list[dict],
     findings: list[ReviewFinding],
+    confidence_threshold: float = 0.7,
 ) -> list[dict]:
     line_positions = _build_line_positions(files)
     comments = []
 
     for finding in findings:
-        if not finding.line:
+        if finding.confidence < confidence_threshold:
             continue
 
-        position = line_positions.get((finding.filename, finding.line))
+        position = line_positions.get((finding.file, finding.line))
         if position is None:
             continue
 
         comments.append(
             {
-                "path": finding.filename,
+                "path": finding.file,
                 "position": position,
                 "body": _format_inline_comment_body(finding),
             }
@@ -65,7 +66,7 @@ def _build_line_positions(files: list[dict]) -> dict[tuple[str, int], int]:
 
 
 def _format_inline_comment_body(finding: ReviewFinding) -> str:
-    severity = finding.severity.title()
+    severity = finding.severity.upper()
     confidence = round(finding.confidence, 2)
 
-    return f"**{severity} severity** | Confidence: {confidence}\n\n{finding.body}"
+    return f"**{severity}** | Confidence: {confidence}\n\n{finding.title}\n\n{finding.comment}"
