@@ -3,9 +3,12 @@
 from fastapi import Depends, FastAPI
 
 from app.config import settings
+from app.core.logging import configure_logging
 from app.github.validators import validate_github_event
 from app.github.webhooks import GitHubWebhookPayload, handle_github_webhook
 
+
+configure_logging()
 
 app = FastAPI(
     title=settings.app_name,
