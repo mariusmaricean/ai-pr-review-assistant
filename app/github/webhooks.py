@@ -118,24 +118,41 @@ Findings: {len(filtered_findings)}
                 body=review_body,
                 comments=inline_comments,
             )
+            published_as = "inline_review"
         else:
             await github_client.post_pull_request_comment(
                 repo_full_name=repo_name,
                 pr_number=pr_number,
                 body=f"{review_body}\n\nNo high-confidence inline findings.",
             )
+            published_as = "summary_comment"
+
+    except httpx.HTTPStatusError:
+        fallback_body = f"""
+## AI PR Review Assistant
+
+{review.summary}
+
+Inline review failed, so here are the findings as a summary:
+
+"""
+
+        for finding in filtered_findings:
+            fallback_body += f"""
+- [{finding.severity.upper()}] `{finding.file}` line {finding.line}
+  - {finding.title}
+  - {finding.comment}
+"""
+
+        await github_client.post_pull_request_comment(
+            repo_full_name=repo_name,
+            pr_number=pr_number,
+            body=fallback_body,
+        )
+
+        published_as = "fallback_summary_comment"
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            status_code=exc.response.status_code,
-            detail=_github_error_detail(
-                status_code=exc.response.status_code,
-                repo_name=repo_name,
-                pr_number=pr_number,
-                operation="post_review" if inline_comments else "post_comment",
-            ),
-        ) from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail="GitHub API is unreachable") from exc
 
@@ -144,9 +161,8 @@ Findings: {len(filtered_findings)}
         "repository": repo_name,
         "pull_request": pr_number,
         "changed_files": len(files),
-        "findings": len(review.findings),
-        "inline_comments": len(inline_comments),
-        "comment_posted": True,
+        "findings": len(filtered_findings),
+        "published_as": published_as,
     }
 
 
