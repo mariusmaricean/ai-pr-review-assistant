@@ -5,12 +5,23 @@ from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
 from app.github.client import GitHubClient
+from app.review.config_loader import (
+    filter_ignored_files,
+    load_review_config_from_text,
+)
 from app.review.line_filter import filter_findings_to_valid_lines
 from app.review.orchestrator import run_review
 
 
+class PullRequestHeadPayload(BaseModel):
+    ref: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
 class PullRequestPayload(BaseModel):
     number: int
+    head: PullRequestHeadPayload | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -33,6 +44,7 @@ class GitHubWebhookPayload(BaseModel):
                 "action": "opened",
                 "pull_request": {
                     "number": 1,
+                    "head": {"ref": "feature-branch"},
                 },
                 "repository": {
                     "full_name": "owner/repo",
@@ -51,14 +63,26 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
 
     pr_number = pull_request.number
     repo_name = repository.full_name
+    branch_name = pull_request.head.ref if pull_request.head else None
 
     github_client = GitHubClient(settings.github_token)
 
+    operation = "fetch_config"
+
     try:
+        config_text = await github_client.get_file_content(
+            repo_full_name=repo_name,
+            path=".ai-pr-review.yml",
+            ref=branch_name,
+        )
+        review_config = load_review_config_from_text(config_text)
+
+        operation = "fetch_files"
         files = await github_client.get_pull_request_files(
             repo_full_name=repo_name,
             pr_number=pr_number,
         )
+        files = filter_ignored_files(files, review_config)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
@@ -68,7 +92,7 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
                 status_code=exc.response.status_code,
                 repo_name=repo_name,
                 pr_number=pr_number,
-                operation="fetch_files",
+                operation=operation,
             ),
         ) from exc
     except httpx.RequestError as exc:
@@ -85,13 +109,14 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
     confidence_filtered_findings = [
         finding
         for finding in review.findings
-        if finding.confidence >= 0.7
+        if finding.confidence >= review_config.min_confidence
     ]
 
     filtered_findings = filter_findings_to_valid_lines(
         confidence_filtered_findings,
         files,
     )
+    filtered_findings = filtered_findings[: review_config.max_comments]
 
     inline_comments = [
         {
@@ -184,6 +209,11 @@ def _github_error_detail(
             return (
                 "GitHub token cannot create pull request reviews. For fine-grained "
                 "tokens, grant Pull requests read/write permission on this repository."
+            )
+        if operation == "fetch_config":
+            return (
+                "GitHub token cannot read repository contents. Make sure the token "
+                "has access to this repository and Contents read permission."
             )
         if operation == "fetch_files":
             return (
