@@ -4,6 +4,7 @@ import time
 import httpx
 
 from app.config import settings
+from app.github.app_auth import get_installation_token
 from app.github.client import GitHubClient
 from app.review.config_loader import (
     filter_ignored_files,
@@ -22,6 +23,7 @@ async def process_pull_request_review(payload: dict) -> dict:
 
     pull_request = payload["pull_request"]
     repository = payload["repository"]
+    installation_id = payload.get("installation", {}).get("id")
 
     pr_number = pull_request["number"]
     repo_name = repository["full_name"]
@@ -64,7 +66,23 @@ async def process_pull_request_review(payload: dict) -> dict:
         },
     )
 
-    github_client = GitHubClient(settings.github_token)
+    github_token = settings.github_token
+
+    if installation_id:
+        logger.info(
+            "Using GitHub App installation token repository=%s pull_request=%s installation_id=%s",
+            repo_name,
+            pr_number,
+            installation_id,
+            extra={
+                "repository": repo_name,
+                "pull_request": pr_number,
+                "installation_id": installation_id,
+            },
+        )
+        github_token = await get_installation_token(installation_id)
+
+    github_client = GitHubClient(github_token)
 
     config_text = await github_client.get_file_content(
         repo_full_name=repo_name,
