@@ -1,13 +1,16 @@
+import json
+
 from openai import AsyncOpenAI
 
 from app.ai.prompts import REVIEW_SYSTEM_PROMPT
 from app.config import settings
+from app.review.models import ReviewResult
 
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 
-async def generate_pr_review(review_context: str) -> str:
+async def generate_pr_review(review_context: str) -> ReviewResult:
     prompt = f"""
 Review this pull request diff:
 
@@ -29,4 +32,8 @@ Review this pull request diff:
         temperature=0.1,
     )
 
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+
+    parsed = json.loads(content)
+
+    return ReviewResult(**parsed)

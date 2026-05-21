@@ -40,6 +40,29 @@ class GitHubClient:
             response.raise_for_status()
             return response.json()
 
+    async def create_pull_request_review(
+        self,
+        repo_full_name: str,
+        pr_number: int,
+        body: str,
+        comments: list[dict],
+    ):
+        repo_full_name = self._normalize_repo_full_name(repo_full_name)
+        url = f"{self.base_url}/repos/{repo_full_name}/pulls/{pr_number}/reviews"
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                url,
+                headers=self._headers(),
+                json={
+                    "body": body,
+                    "event": "COMMENT",
+                    "comments": comments,
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+
     def _normalize_repo_full_name(self, repo_full_name: str):
         repo_full_name = repo_full_name.strip()
 

@@ -75,19 +75,31 @@ async def handle_github_webhook(payload: GitHubWebhookPayload):
 
     try:
         review = await run_review(files)
-    except OpenAIError as exc:
+    except (OpenAIError, ValueError) as exc:
         raise HTTPException(
             status_code=502,
             detail="OpenAI review generation failed",
         ) from exc
 
+    filtered_findings = [
+        finding for finding in review.findings if finding.confidence >= 0.7
+    ]
+
     comment_body = f"""
 ## AI PR Review Assistant
 
-{review}
+### Summary
+{review.summary}
 
----
-_Generated automatically by AI PR Review Assistant._
+### Findings
+"""
+
+    for finding in filtered_findings:
+        comment_body += f"""
+
+- [{finding.severity.upper()}] `{finding.file}` line {finding.line}
+  - {finding.title}
+  - {finding.comment}
 """
 
     try:
@@ -116,6 +128,8 @@ _Generated automatically by AI PR Review Assistant._
         "repository": repo_name,
         "pull_request": pr_number,
         "changed_files": len(files),
+        "findings": len(review.findings),
+        "findings_posted": len(filtered_findings),
         "comment_posted": True,
     }
 
@@ -134,6 +148,11 @@ def _github_error_detail(
                 "GitHub token cannot post PR comments. For fine-grained tokens, "
                 "grant Issues read/write permission on this repository."
             )
+        if operation == "post_review":
+            return (
+                "GitHub token cannot create pull request reviews. For fine-grained "
+                "tokens, grant Pull requests read/write permission on this repository."
+            )
         if operation == "fetch_files":
             return (
                 "GitHub token cannot read pull request files. Make sure the token "
@@ -146,7 +165,7 @@ def _github_error_detail(
             "message": "GitHub repository or pull request not found",
             "repository": repo_name,
             "pull_request": pr_number,
-            "hint": "Use repository.full_name as 'owner/repo' and make sure the PR number exists. For private repos, the token needs access to the repo.",
+            "hint": "Use repository.full_name as owner/repo and make sure the PR number exists. For private repos, the token needs access to the repo.",
         }
 
     return "GitHub API request failed"
