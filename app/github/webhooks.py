@@ -23,10 +23,17 @@ class RepositoryPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class InstallationPayload(BaseModel):
+    id: int
+
+    model_config = ConfigDict(extra="allow")
+
+
 class GitHubWebhookPayload(BaseModel):
     action: str | None = None
     pull_request: PullRequestPayload | None = None
     repository: RepositoryPayload | None = None
+    installation: InstallationPayload | None = None
 
     model_config = ConfigDict(
         extra="allow",
@@ -43,6 +50,7 @@ class GitHubWebhookPayload(BaseModel):
                 "repository": {
                     "full_name": "owner/repo",
                 },
+                "installation": {"id": 123456},
             }
         },
     )
