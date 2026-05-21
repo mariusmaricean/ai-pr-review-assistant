@@ -9,6 +9,7 @@ from app.review.config_loader import (
     filter_ignored_files,
     load_review_config_from_text,
 )
+from app.review.idempotency import acquire_review_lock, mark_review_completed
 from app.review.line_filter import filter_findings_to_valid_lines
 from app.review.orchestrator import run_review
 
@@ -25,12 +26,42 @@ async def process_pull_request_review(payload: dict) -> dict:
     pr_number = pull_request["number"]
     repo_name = repository["full_name"]
     branch_name = pull_request.get("head", {}).get("ref")
+    commit_sha = pull_request.get("head", {}).get("sha")
+    review_job_id = payload.get("_review_job_id")
+
+    if not acquire_review_lock(repo_name, pr_number, commit_sha, review_job_id):
+        logger.info(
+            "Skipping duplicate PR review repository=%s pull_request=%s commit_sha=%s",
+            repo_name,
+            pr_number,
+            commit_sha,
+            extra={
+                "repository": repo_name,
+                "pull_request": pr_number,
+                "commit_sha": commit_sha,
+                "review_job_id": review_job_id,
+            },
+        )
+
+        return {
+            "status": "skipped",
+            "reason": "duplicate_review_job",
+            "repository": repo_name,
+            "pull_request": pr_number,
+            "commit_sha": commit_sha,
+            "review_job_id": review_job_id,
+        }
 
     logger.info(
         "Starting PR review repository=%s pull_request=%s",
         repo_name,
         pr_number,
-        extra={"repository": repo_name, "pull_request": pr_number},
+        extra={
+            "repository": repo_name,
+            "pull_request": pr_number,
+            "commit_sha": commit_sha,
+            "review_job_id": review_job_id,
+        },
     )
 
     github_client = GitHubClient(settings.github_token)
@@ -203,6 +234,8 @@ Findings: {len(filtered_findings)}
             },
         )
 
+    mark_review_completed(repo_name, pr_number, commit_sha)
+
     duration = time.perf_counter() - start_time
 
     logger.info(
@@ -218,6 +251,7 @@ Findings: {len(filtered_findings)}
             "duration_seconds": round(duration, 2),
             "findings": len(filtered_findings),
             "published_as": published_as,
+            "commit_sha": commit_sha,
         },
     )
 
@@ -225,6 +259,7 @@ Findings: {len(filtered_findings)}
         "status": "completed",
         "repository": repo_name,
         "pull_request": pr_number,
+        "commit_sha": commit_sha,
         "changed_files": len(files),
         "findings": len(filtered_findings),
         "published_as": published_as,

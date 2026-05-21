@@ -5,6 +5,7 @@ from app.tasks import review_pull_request
 
 class PullRequestHeadPayload(BaseModel):
     ref: str | None = None
+    sha: str | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -34,7 +35,10 @@ class GitHubWebhookPayload(BaseModel):
                 "action": "opened",
                 "pull_request": {
                     "number": 1,
-                    "head": {"ref": "feature-branch"},
+                    "head": {
+                        "ref": "feature-branch",
+                        "sha": "abc123",
+                    },
                 },
                 "repository": {
                     "full_name": "owner/repo",

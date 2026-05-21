@@ -11,4 +11,9 @@ from app.worker import celery_app
     retry_kwargs={"max_retries": 3, "countdown": 30},
 )
 def review_pull_request(self, payload: dict):
-    return asyncio.run(process_pull_request_review(payload))
+    payload_with_job_id = {
+        **payload,
+        "_review_job_id": self.request.id,
+    }
+
+    return asyncio.run(process_pull_request_review(payload_with_job_id))
