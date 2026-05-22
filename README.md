@@ -32,20 +32,46 @@ AI PR Review Assistant provides a repository-aware review pipeline that reacts t
 
 ## ⚙️ Tech Stack
 
-- Python 3.12
-- FastAPI
-- Celery
-- Redis
-- OpenAI API
-- GitHub App API
-- Pydantic Settings
-- HTTPX
-- Sentence Transformers
-- FAISS
-- OpenTelemetry
-- Docker Compose
-- Ruff
-- Pytest
+| Area | Technology |
+| --- | --- |
+| API | FastAPI |
+| Async Workers | Celery |
+| Queue/Broker | Redis |
+| AI | OpenAI API |
+| Semantic Retrieval | FAISS + Sentence Transformers |
+| CI/CD | GitHub Actions |
+| Containerization | Docker Compose |
+| Telemetry | OpenTelemetry |
+| GitHub Integration | GitHub Apps |
+| Quality | Ruff + Pytest |
+
+## 🗂️ Repository Structure
+
+```txt
+ai-pr-review-assistant/
+├── app/
+│   ├── ai/
+│   ├── core/
+│   ├── github/
+│   ├── metrics/
+│   ├── retrieval/
+│   ├── review/
+│   ├── tasks.py
+│   ├── worker.py
+│   └── main.py
+│
+├── docs/
+│   ├── architecture.md
+│   ├── diagrams/
+│   └── screenshots/
+│
+├── tests/
+├── scripts/
+├── docker-compose.yml
+├── requirements.txt
+├── README.md
+└── .env.example
+```
 
 ## 🏗️ Engineering Impact
 
@@ -91,6 +117,16 @@ See [docs/diagrams](docs/diagrams) for Mermaid diagrams of the system architectu
 
 ## 💻 Local Development
 
+### Requirements
+
+- Python 3.12+
+- Docker
+- Redis
+- GitHub App or local GitHub token
+- OpenAI API key
+
+### Install
+
 Create and activate a virtual environment:
 
 ```bash
@@ -119,6 +155,8 @@ REVIEW_IDEMPOTENCY_TTL_SECONDS=3600
 MAX_CHANGED_FILES=50
 MAX_PATCH_CHARS=60000
 ```
+
+### Run
 
 Start Redis:
 
