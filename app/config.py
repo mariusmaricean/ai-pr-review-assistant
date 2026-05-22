@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     github_private_key_path: str = ""
     github_webhook_secret: str = ""
     admin_api_token: str = ""
+    max_changed_files: int = 50
+    max_patch_chars: int = 60000
 
     class Config:
         env_file = ".env"

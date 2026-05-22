@@ -13,6 +13,7 @@ from app.review.config_loader import (
     load_review_config_from_text,
 )
 from app.review.context_retriever import load_repository_context
+from app.review.guards import validate_review_size
 from app.review.idempotency import acquire_review_lock, mark_review_completed
 from app.review.line_filter import filter_findings_to_valid_lines
 from app.review.orchestrator import run_review
@@ -157,6 +158,36 @@ async def process_pull_request_review(payload: dict) -> dict:
                 "reviewable_files": len(files),
             },
         )
+
+        is_valid_size, size_error = validate_review_size(files)
+
+        if not is_valid_size:
+            span.set_attribute("review.skipped", True)
+            span.set_attribute("review.skip_reason", size_error or "invalid_review_size")
+
+            await github_client.post_pull_request_comment(
+                repo_full_name=repo_name,
+                pr_number=pr_number,
+                body=f"""
+## AI PR Review Assistant
+
+Skipped review.
+
+Reason: {size_error}
+
+Please split this PR into smaller changes for a better review.
+""",
+            )
+
+            mark_review_completed(repo_name, pr_number, commit_sha)
+
+            return {
+                "status": "skipped",
+                "reason": size_error,
+                "repository": repo_name,
+                "pull_request": pr_number,
+                "changed_files": len(files),
+            }
 
         with tracer.start_as_current_span("load_repository_context") as context_span:
             repository_context = await load_repository_context(

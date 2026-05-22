@@ -2,7 +2,10 @@ import json
 import logging
 import time
 
+from json import JSONDecodeError
+
 from openai import AsyncOpenAI
+from pydantic import ValidationError
 
 from app.ai.prompts import (
     REVIEW_SYSTEM_PROMPT,
@@ -74,7 +77,7 @@ PR diff:
         )
 
         duration = time.perf_counter() - start
-        usage = response.usage
+        usage = getattr(response, "usage", None)
 
         metrics = {
             "reviewer_type": reviewer_type,
@@ -107,8 +110,24 @@ PR diff:
             extra=metrics,
         )
 
-    content = response.choices[0].message.content
+    content = response.choices[0].message.content or ""
 
-    parsed = json.loads(content)
+    try:
+        parsed = json.loads(content)
+        return ReviewResult(**parsed)
 
-    return ReviewResult(**parsed)
+    except (JSONDecodeError, ValidationError) as error:
+        logger.warning(
+            "Failed to parse AI review response",
+            extra={
+                "reviewer_type": reviewer_type,
+                "language": language,
+                "error": str(error),
+                "response_preview": content[:500],
+            },
+        )
+
+        return ReviewResult(
+            summary=f"{reviewer_type} reviewer did not return valid structured output.",
+            findings=[],
+        )
