@@ -23,6 +23,7 @@ async def generate_pr_review(
     review_context: str,
     language: str,
     reviewer_type: str = "general",
+    repository_context: str = "",
 ) -> ReviewResult:
     reviewer_instructions = REVIEWER_PROFILES.get(reviewer_type, "")
     language_instructions = build_language_prompt(language)
@@ -42,6 +43,9 @@ Language/profile:
 Language-specific focus:
 {language_instructions}
 
+Repository context:
+{repository_context or "No repository context available."}
+
 PR diff:
 {review_context}
 """
@@ -50,6 +54,7 @@ PR diff:
         span.set_attribute("reviewer_type", reviewer_type)
         span.set_attribute("language", language)
         span.set_attribute("prompt_length", len(prompt))
+        span.set_attribute("repository_context_length", len(repository_context))
 
         start = time.perf_counter()
 
@@ -76,6 +81,7 @@ PR diff:
             "language": language,
             "duration_seconds": round(duration, 2),
             "prompt_length": len(prompt),
+            "repository_context_length": len(repository_context),
         }
 
         span.set_attribute("duration_seconds", round(duration, 2))

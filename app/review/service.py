@@ -11,6 +11,7 @@ from app.review.config_loader import (
     filter_ignored_files,
     load_review_config_from_text,
 )
+from app.review.context_retriever import load_repository_context
 from app.review.idempotency import acquire_review_lock, mark_review_completed
 from app.review.line_filter import filter_findings_to_valid_lines
 from app.review.orchestrator import run_review
@@ -156,8 +157,29 @@ async def process_pull_request_review(payload: dict) -> dict:
             },
         )
 
+        with tracer.start_as_current_span("load_repository_context") as context_span:
+            repository_context = await load_repository_context(
+                github_client=github_client,
+                repo_full_name=repo_name,
+                ref=branch_name,
+            )
+            context_span.set_attribute("repository_context_length", len(repository_context))
+
+        logger.info(
+            "Loaded repository context repository=%s pull_request=%s repository_context_length=%s",
+            repo_name,
+            pr_number,
+            len(repository_context),
+            extra={
+                "repository": repo_name,
+                "pull_request": pr_number,
+                "repository_context_length": len(repository_context),
+            },
+        )
+
         with tracer.start_as_current_span("run_ai_review_pipeline") as review_span:
-            review = await run_review(files)
+            review_span.set_attribute("repository_context_length", len(repository_context))
+            review = await run_review(files, repository_context)
             review_span.set_attribute("raw_findings", len(review.findings))
 
         logger.info(

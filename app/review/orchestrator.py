@@ -30,6 +30,7 @@ def detect_chunk_language(chunk: list[dict]) -> str:
 async def review_chunk_with_reviewer(
     chunk: list[dict],
     reviewer_type: str,
+    repository_context: str,
 ):
     context = build_review_context(chunk)
     language = detect_chunk_language(chunk)
@@ -39,6 +40,7 @@ async def review_chunk_with_reviewer(
         span.set_attribute("language", language)
         span.set_attribute("files", len(chunk))
         span.set_attribute("context_length", len(context))
+        span.set_attribute("repository_context_length", len(repository_context))
 
         logger.info(
             "Running reviewer chunk reviewer_type=%s language=%s files=%s",
@@ -50,6 +52,7 @@ async def review_chunk_with_reviewer(
                 "language": language,
                 "files": len(chunk),
                 "context_length": len(context),
+                "repository_context_length": len(repository_context),
             },
         )
 
@@ -57,31 +60,38 @@ async def review_chunk_with_reviewer(
             review_context=context,
             language=language,
             reviewer_type=reviewer_type,
+            repository_context=repository_context,
         )
 
 
-async def run_review(files: list[dict]) -> ReviewResult:
+async def run_review(
+    files: list[dict],
+    repository_context: str = "",
+) -> ReviewResult:
     chunks = chunk_files(files)
 
     with tracer.start_as_current_span("review_pipeline_execution") as span:
         span.set_attribute("chunks", len(chunks))
         span.set_attribute("files", len(files))
         span.set_attribute("reviewers", len(REVIEWER_TYPES))
+        span.set_attribute("repository_context_length", len(repository_context))
 
         logger.info(
-            "Created review chunks chunks=%s files=%s reviewers=%s",
+            "Created review chunks chunks=%s files=%s reviewers=%s repository_context_length=%s",
             len(chunks),
             len(files),
             len(REVIEWER_TYPES),
+            len(repository_context),
             extra={
                 "chunks": len(chunks),
                 "files": len(files),
                 "reviewers": len(REVIEWER_TYPES),
+                "repository_context_length": len(repository_context),
             },
         )
 
         tasks = [
-            review_chunk_with_reviewer(chunk, reviewer_type)
+            review_chunk_with_reviewer(chunk, reviewer_type, repository_context)
             for chunk in chunks
             for reviewer_type in REVIEWER_TYPES
         ]
