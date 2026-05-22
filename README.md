@@ -47,6 +47,17 @@ AI PR Review Assistant provides a repository-aware review pipeline that reacts t
 - Ruff
 - Pytest
 
+## Engineering Impact
+
+This project demonstrates:
+
+- Platform engineering with GitHub App integration
+- Asynchronous distributed processing with Celery and Redis
+- Multi-agent LLM orchestration for specialized code review
+- Repository-aware semantic retrieval for contextual AI feedback
+- Secure webhook validation and idempotent job processing
+- Observability, metrics, and production-oriented deployment patterns
+
 ## Architecture
 
 ```txt
