@@ -13,3 +13,5 @@ opentelemetry-sdk
 sentence-transformers
 faiss-cpu
 numpy
+pytest
+ruff

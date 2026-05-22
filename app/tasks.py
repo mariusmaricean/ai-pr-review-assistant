@@ -10,7 +10,7 @@ from app.worker import celery_app
     autoretry_for=(Exception,),
     retry_kwargs={"max_retries": 3, "countdown": 30},
 )
-def review_pull_request(self, payload: dict):
+def review_pull_request(self, payload: dict) -> dict:
     payload_with_job_id = {
         **payload,
         "_review_job_id": self.request.id,

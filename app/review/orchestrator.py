@@ -32,7 +32,7 @@ async def review_chunk_with_reviewer(
     chunk: list[dict],
     reviewer_type: str,
     repository_context: str,
-):
+) -> ReviewResult:
     context = build_review_context(chunk)
     language = detect_chunk_language(chunk)
 

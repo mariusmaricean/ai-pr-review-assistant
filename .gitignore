@@ -5,3 +5,6 @@ __pycache__/
 *.pem
 repo_context.index
 repo_context_files.txt
+.DS_Store
+.pytest_cache/
+.ruff_cache/

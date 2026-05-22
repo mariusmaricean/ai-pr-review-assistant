@@ -8,5 +8,5 @@ router = APIRouter(prefix="/metrics", tags=["metrics"])
 
 
 @router.get("/reviews", dependencies=[Depends(verify_admin_token)])
-async def review_metrics():
+async def review_metrics() -> dict:
     return get_review_metrics()

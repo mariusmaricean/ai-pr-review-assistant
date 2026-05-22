@@ -8,14 +8,14 @@ class GitHubClient:
         self.token = token
         self.base_url = "https://api.github.com"
 
-    def _headers(self):
+    def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
-    async def get_pull_request_files(self, repo_full_name: str, pr_number: int):
+    async def get_pull_request_files(self, repo_full_name: str, pr_number: int) -> list[dict]:
         repo_full_name = self._normalize_repo_full_name(repo_full_name)
         url = f"{self.base_url}/repos/{repo_full_name}/pulls/{pr_number}/files"
 
@@ -59,7 +59,7 @@ class GitHubClient:
         repo_full_name: str,
         pr_number: int,
         body: str,
-    ):
+    ) -> dict:
         repo_full_name = self._normalize_repo_full_name(repo_full_name)
         url = f"{self.base_url}/repos/{repo_full_name}/issues/{pr_number}/comments"
 
@@ -78,7 +78,7 @@ class GitHubClient:
         pr_number: int,
         body: str,
         comments: list[dict],
-    ):
+    ) -> dict:
         repo_full_name = self._normalize_repo_full_name(repo_full_name)
         url = f"{self.base_url}/repos/{repo_full_name}/pulls/{pr_number}/reviews"
 
@@ -95,7 +95,7 @@ class GitHubClient:
             response.raise_for_status()
             return response.json()
 
-    def _normalize_repo_full_name(self, repo_full_name: str):
+    def _normalize_repo_full_name(self, repo_full_name: str) -> str:
         repo_full_name = repo_full_name.strip()
 
         if repo_full_name.startswith("https://github.com/"):

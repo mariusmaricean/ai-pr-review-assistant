@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List
 
 
 class ReviewFinding(BaseModel):
@@ -13,4 +12,4 @@ class ReviewFinding(BaseModel):
 
 class ReviewResult(BaseModel):
     summary: str
-    findings: List[ReviewFinding]
+    findings: list[ReviewFinding]

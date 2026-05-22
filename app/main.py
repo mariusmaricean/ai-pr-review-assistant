@@ -23,5 +23,5 @@ async def github_webhook(
     request: Request,
     github_event: str = Depends(validate_github_event),
     body: bytes = Depends(verify_github_signature),
-):
+) -> dict:
     return await handle_github_webhook(request, body)

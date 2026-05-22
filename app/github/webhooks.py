@@ -5,7 +5,7 @@ from fastapi import Request
 from app.tasks import review_pull_request
 
 
-async def handle_github_webhook(request: Request, body: bytes):
+async def handle_github_webhook(request: Request, body: bytes) -> dict:
     payload = json.loads(body)
 
     action = payload.get("action")

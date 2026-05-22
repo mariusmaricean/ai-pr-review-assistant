@@ -8,7 +8,7 @@ router = APIRouter(prefix="/retrieval", tags=["retrieval"])
 
 
 @router.post("/reindex", dependencies=[Depends(verify_admin_token)])
-async def reindex_repository_context():
+async def reindex_repository_context() -> dict:
     result = build_index(".")
     return {
         "status": "completed",
