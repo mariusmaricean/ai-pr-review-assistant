@@ -3,6 +3,7 @@ import logging
 
 from app.ai.client import generate_pr_review
 from app.core.telemetry import tracer
+from app.retrieval.search import search_related_context
 from app.review.chunker import chunk_files
 from app.review.context_builder import build_review_context
 from app.review.language import detect_language
@@ -56,11 +57,23 @@ async def review_chunk_with_reviewer(
             },
         )
 
+        retrieved_context = search_related_context(context)
+        combined_context = f"""
+Repository context:
+{repository_context}
+
+Retrieved related context:
+{retrieved_context}
+"""
+
+        span.set_attribute("retrieved_context_length", len(retrieved_context))
+        span.set_attribute("combined_context_length", len(combined_context))
+
         return await generate_pr_review(
             review_context=context,
             language=language,
             reviewer_type=reviewer_type,
-            repository_context=repository_context,
+            repository_context=combined_context,
         )
 
 

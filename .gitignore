@@ -3,3 +3,5 @@
 __pycache__/
 *.py[cod]
 *.pem
+repo_context.index
+repo_context_files.txt
