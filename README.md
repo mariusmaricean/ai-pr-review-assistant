@@ -189,8 +189,8 @@ Metrics + Telemetry
 
 See:
 
-* `docs/architecture.md`
-* `docs/diagrams/`
+* [docs/architecture.md](docs/architecture.md)
+* [docs/diagrams/](docs/diagrams/)
 
 for additional architecture details and Mermaid diagrams.
 
