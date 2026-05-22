@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 
 from openai import AsyncOpenAI
 
@@ -8,8 +10,11 @@ from app.ai.prompts import (
     build_language_prompt,
 )
 from app.config import settings
+from app.core.telemetry import tracer
 from app.review.models import ReviewResult
 
+
+logger = logging.getLogger(__name__)
 
 client = AsyncOpenAI(api_key=settings.openai_api_key)
 
@@ -41,20 +46,60 @@ PR diff:
 {review_context}
 """
 
-    response = await client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": REVIEW_SYSTEM_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        temperature=0.1,
-    )
+    with tracer.start_as_current_span("openai_review_generation") as span:
+        span.set_attribute("reviewer_type", reviewer_type)
+        span.set_attribute("language", language)
+        span.set_attribute("prompt_length", len(prompt))
+
+        start = time.perf_counter()
+
+        response = await client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": REVIEW_SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.1,
+        )
+
+        duration = time.perf_counter() - start
+        usage = response.usage
+
+        metrics = {
+            "reviewer_type": reviewer_type,
+            "language": language,
+            "duration_seconds": round(duration, 2),
+            "prompt_length": len(prompt),
+        }
+
+        span.set_attribute("duration_seconds", round(duration, 2))
+
+        if usage:
+            token_metrics = {
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+            }
+            metrics.update(token_metrics)
+
+            for key, value in token_metrics.items():
+                if value is not None:
+                    span.set_attribute(key, value)
+
+        logger.info(
+            "AI review completed reviewer_type=%s language=%s duration_seconds=%s prompt_length=%s",
+            reviewer_type,
+            language,
+            round(duration, 2),
+            len(prompt),
+            extra=metrics,
+        )
 
     content = response.choices[0].message.content
 
