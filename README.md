@@ -570,15 +570,46 @@ Example response:
 
 ---
 
-## 🖼️ Example Screenshots
+---
 
-Demo screenshots are added under [docs/screenshots](docs/screenshots):
+# 🖼️ Demo Screenshots
 
-- Swagger API with webhook, retrieval, and metrics endpoints.
-- Successful metrics endpoint response.
-- Inline GitHub PR comments.
-- Celery worker logs processing a review.
+## Inline GitHub PR Review Comments
 
+Repository-aware AI review findings published directly into GitHub pull requests.
+
+![Inline PR Comments](docs/screenshots/inline-pr-comments.png)
+
+---
+
+## Swagger API Platform
+
+FastAPI Swagger/OpenAPI interface exposing:
+- GitHub webhook ingestion
+- semantic repository reindexing
+- metrics APIs
+
+![Swagger API](docs/screenshots/swagger-api.png)
+
+---
+
+## Metrics Endpoint
+
+Redis-backed operational review metrics exposed through protected admin APIs.
+
+![Metrics Endpoint](docs/screenshots/metrics-endpoint.png)
+
+---
+
+## Successful Metrics API Response
+
+Example successful response from:
+
+![Metrics Endpoint](docs/screenshots/metrics-endpoint_successful_response.png)
+
+```txt
+GET /metrics/reviews
+```
 ---
 
 # ⚠️ Current Limitations
