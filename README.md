@@ -570,21 +570,14 @@ Example response:
 
 ---
 
-# 🖼️ Example Screenshots
+## 🖼️ Example Screenshots
 
-Suggested screenshots:
+Demo screenshots are added under [docs/screenshots](docs/screenshots):
 
-* Swagger API endpoints
-* GitHub inline PR review comments
-* Metrics endpoint responses
-* Celery worker logs
-* Semantic retrieval reindex flow
-
-Place screenshots under:
-
-```txt
-docs/screenshots/
-```
+- Swagger API with webhook, retrieval, and metrics endpoints.
+- Successful metrics endpoint response.
+- Inline GitHub PR comments.
+- Celery worker logs processing a review.
 
 ---
 
