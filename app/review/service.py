@@ -7,6 +7,7 @@ from app.config import settings
 from app.core.telemetry import tracer
 from app.github.app_auth import get_installation_token
 from app.github.client import GitHubClient
+from app.metrics.service import record_review_metrics
 from app.review.config_loader import (
     filter_ignored_files,
     load_review_config_from_text,
@@ -320,6 +321,14 @@ Findings: {len(filtered_findings)}
         span.set_attribute("duration_seconds", round(duration, 2))
         span.set_attribute("findings", len(filtered_findings))
         span.set_attribute("published_as", published_as)
+
+        record_review_metrics(
+            repository=repo_name,
+            language=None,
+            duration_seconds=duration,
+            findings_count=len(filtered_findings),
+            published_as=published_as,
+        )
 
         logger.info(
             "Completed PR review repository=%s pull_request=%s duration_seconds=%s findings=%s published_as=%s",

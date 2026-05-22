@@ -7,12 +7,14 @@ from app.core.logging import configure_logging
 from app.github.signature import verify_github_signature
 from app.github.validators import validate_github_event
 from app.github.webhooks import handle_github_webhook
+from app.metrics.routes import router as metrics_router
 from app.retrieval.routes import router as retrieval_router
 
 
 configure_logging()
 
 app = FastAPI(title=settings.app_name)
+app.include_router(metrics_router)
 app.include_router(retrieval_router)
 
 
