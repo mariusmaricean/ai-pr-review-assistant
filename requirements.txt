@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+httpx
+openai
+pyyaml
+celery
+redis
+pyjwt
+cryptography
+opentelemetry-api
+opentelemetry-sdk
+sentence-transformers
+faiss-cpu
+numpy

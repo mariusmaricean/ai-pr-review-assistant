@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     github_app_id: str = ""
     github_private_key_path: str = ""
     github_webhook_secret: str = ""
+    admin_api_token: str = ""
 
     class Config:
         env_file = ".env"
